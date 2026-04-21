@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs / local data
+*.log
+logs/
+data/cache/
+*.parquet
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Secrets — NEVER commit these
+.env.local
+credentials.json
+*.key
+*.pem

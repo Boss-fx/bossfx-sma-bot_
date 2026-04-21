@@ -1,0 +1,31 @@
+# BossFx — Default EURUSD SMA crossover config
+# Edit these values to tweak a run. No code changes needed.
+
+data:
+  source: csv                      # csv | yfinance
+  symbol: EURUSD
+  timeframe: 1h
+  start: 2023-01-01
+  end: 2024-01-01
+  csv_path: tests/fixtures/eurusd_1h_sample.csv
+
+strategy:
+  name: sma_crossover
+  fast_period: 20
+  slow_period: 50
+
+risk:
+  initial_cash: 10000.0
+  risk_per_trade_pct: 0.01          # risk 1% of equity per trade
+  max_position_pct: 0.20            # cap any single position at 20% notional
+  stop_loss_pct: 0.005              # 0.5% price move against us
+  take_profit_pct: 0.010            # 1.0% target (1:2 RR)
+
+execution:
+  spread_pips: 1.0
+  slippage_pips: 0.5
+  commission_per_lot: 7.0
+  pip_size: 0.0001
+  contract_size: 100000.0
+
+log_level: INFO
