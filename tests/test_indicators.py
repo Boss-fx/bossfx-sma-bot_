@@ -71,7 +71,6 @@ class TestSMANoLookAhead(unittest.TestCase):
         for v in prefix:
             s2.update(v)
         sma_at_5_baseline = s2.value
-        # Now stream scenario A after the fact
         for v in future_scenario_a:
             s2.update(v)
 
@@ -82,7 +81,6 @@ class TestSMANoLookAhead(unittest.TestCase):
         for v in future_scenario_b:
             s3.update(v)
 
-        # The SMA at step 5 must be identical regardless of what comes after
         self.assertAlmostEqual(sma_at_5_scenario_a, sma_at_5_baseline, places=10)
         self.assertAlmostEqual(sma_at_5_baseline, sma_at_5_scenario_b, places=10)
 
@@ -91,11 +89,7 @@ class TestSMANoLookAhead(unittest.TestCase):
         s = SMA(period=3)
         s.update(1.0); s.update(2.0)
         val_at_3 = s.update(3.0)
-        # Do more updates
         s.update(99.0); s.update(100.0)
-        # The returned value at step 3 is a plain float — nothing could have
-        # mutated it. This test is mostly a codification: SMA returns floats,
-        # not views into internal state.
         self.assertEqual(val_at_3, 2.0)
 
 
@@ -123,21 +117,21 @@ class TestATR(unittest.TestCase):
         prefix = [(1.1, 1.0, 1.05), (1.12, 1.05, 1.10), (1.13, 1.08, 1.11),
                   (1.14, 1.10, 1.12)]
         a1 = ATR(period=3)
-        for h, l, c in prefix:
-            a1.update(h, l, c)
+        for high, low, close in prefix:
+            a1.update(high, low, close)
         baseline = a1.value
 
         a2 = ATR(period=3)
-        for h, l, c in prefix:
-            a2.update(h, l, c)
+        for high, low, close in prefix:
+            a2.update(high, low, close)
         # Spike the future
         a2.update(10.0, 5.0, 7.5)
         a2.update(20.0, 10.0, 15.0)
 
         # Go back and compute again from scratch with ONLY the prefix
         a3 = ATR(period=3)
-        for h, l, c in prefix:
-            a3.update(h, l, c)
+        for high, low, close in prefix:
+            a3.update(high, low, close)
         recomputed = a3.value
 
         self.assertAlmostEqual(baseline, recomputed, places=10)
