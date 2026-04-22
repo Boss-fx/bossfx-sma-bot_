@@ -11,9 +11,9 @@ a toy from a fintech product.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from bossfx.core.events import BarEvent, FillEvent, OrderSide
 from bossfx.core.interfaces import Portfolio
@@ -24,8 +24,8 @@ class Position:
     """An open position in a single symbol."""
 
     symbol: str
-    quantity: float = 0.0       # positive = long, negative = short, 0 = flat
-    avg_price: float = 0.0      # volume-weighted average entry price
+    quantity: float = 0.0
+    avg_price: float = 0.0
     realized_pnl: float = 0.0
 
     def unrealized_pnl(self, mark_price: float) -> float:
@@ -42,10 +42,9 @@ class CashPortfolio(Portfolio):
     A straightforward cash-account portfolio.
 
     Simplifying assumptions (to be relaxed in later phases):
-      * No leverage / margin modeling yet — we track notional directly.
+      * No leverage / margin modeling yet.
       * One position per symbol (no hedging mode).
-      * Quote currency == account currency (e.g., USD account trading EURUSD
-        is an approximation; we'll add FX conversion in Phase 3).
+      * Quote currency == account currency.
     """
 
     def __init__(self, initial_cash: float = 10_000.0) -> None:
@@ -54,11 +53,10 @@ class CashPortfolio(Portfolio):
         self._initial_cash = initial_cash
         self._cash = initial_cash
         self._positions: Dict[str, Position] = {}
-        self._last_mark: Dict[str, float] = {}          # last seen close per symbol
+        self._last_mark: Dict[str, float] = {}
         self._equity_curve: List[Tuple[datetime, float]] = []
-        self._fills: List[FillEvent] = []               # full audit trail
+        self._fills: List[FillEvent] = []
 
-    # ---- write path ----------------------------------------------------- #
     def on_fill(self, fill: FillEvent) -> None:
         """Apply a fill to cash + position. The *only* way money moves."""
         self._fills.append(fill)
@@ -66,10 +64,9 @@ class CashPortfolio(Portfolio):
 
         signed_qty = fill.quantity if fill.side == OrderSide.BUY else -fill.quantity
 
-        # Case A: opening or adding to position in same direction
+        # Case A: opening or adding in same direction
         if pos.quantity == 0 or (pos.quantity > 0 and signed_qty > 0) or (pos.quantity < 0 and signed_qty < 0):
             new_qty = pos.quantity + signed_qty
-            # Volume-weighted average entry price
             pos.avg_price = (
                 (pos.avg_price * abs(pos.quantity) + fill.fill_price * abs(signed_qty))
                 / abs(new_qty)
@@ -79,22 +76,19 @@ class CashPortfolio(Portfolio):
         # Case B: reducing or flipping position
         else:
             closing_qty = min(abs(signed_qty), abs(pos.quantity))
-            # Realized P&L on the closed portion
             direction = 1 if pos.quantity > 0 else -1
             pnl = (fill.fill_price - pos.avg_price) * closing_qty * direction
             pos.realized_pnl += pnl
             self._cash += pnl
 
-            remaining = signed_qty + (closing_qty * direction)  # net after close
+            remaining = signed_qty + (closing_qty * direction)
             if abs(remaining) < 1e-9:
                 pos.quantity = 0.0
                 pos.avg_price = 0.0
             else:
-                # We flipped — remaining is the new position opened at fill price
                 pos.quantity = remaining
                 pos.avg_price = fill.fill_price
 
-        # Commissions always come out of cash, regardless of direction
         self._cash -= fill.commission
 
     def on_bar(self, bar: BarEvent) -> None:
@@ -102,7 +96,6 @@ class CashPortfolio(Portfolio):
         self._last_mark[bar.symbol] = bar.close
         self._equity_curve.append((bar.timestamp, self.equity))
 
-    # ---- read path ------------------------------------------------------ #
     @property
     def cash(self) -> float:
         return self._cash

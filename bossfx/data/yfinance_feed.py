@@ -92,33 +92,34 @@ class YFinanceDataFeed(DataFeed):
         return df
 
     @staticmethod
-    def _sanitize_ohlc(o: float, h: float, l: float, c: float) -> tuple[float, float, float, float]:
+    def _sanitize_ohlc(
+        open_price: float, high: float, low: float, close: float
+    ) -> tuple[float, float, float, float]:
         """
         Fix minor OHLC inconsistencies that yfinance produces for FX pairs.
-        Guarantees: low <= min(open, close, high) and high >= max(open, close, low).
         We never modify open or close — they're the critical values. We widen
         high/low to contain them if needed.
         """
-        high = max(h, o, c, l)
-        low = min(l, o, c, h)
-        return o, high, low, c
+        new_high = max(high, open_price, close, low)
+        new_low = min(low, open_price, close, high)
+        return open_price, new_high, new_low, close
 
     def stream(self) -> Iterator[BarEvent]:
         df = self._load()
         for row in df.itertuples(index=False):
-            o, h, l, c = self._sanitize_ohlc(
+            open_price, high, low, close = self._sanitize_ohlc(
                 float(row.open), float(row.high), float(row.low), float(row.close)
             )
             orig = (float(row.open), float(row.high), float(row.low), float(row.close))
-            if (o, h, l, c) != orig:
+            if (open_price, high, low, close) != orig:
                 self._sanitized_count += 1
             yield BarEvent(
                 symbol=self._symbol,
                 timestamp=row.timestamp.to_pydatetime(),
-                open=o,
-                high=h,
-                low=l,
-                close=c,
+                open=open_price,
+                high=high,
+                low=low,
+                close=close,
                 volume=float(row.volume),
                 timeframe=self._timeframe,
             )

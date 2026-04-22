@@ -3,21 +3,6 @@ bossfx.backtest.engine
 ======================
 
 The event-driven backtest engine.
-
-Flow per bar:
-    1. Feed emits BarEvent N.
-    2. Engine checks if any open position had its SL/TP hit DURING bar N.
-       If so, emit a synthetic exit fill at the stop/target price.
-       (This happens BEFORE we process bar N's signal to prevent look-ahead.)
-    3. Portfolio marks-to-market at bar N's close.
-    4. Strategy sees bar N, maybe emits SignalEvent.
-    5. Risk manager sizes the signal into an OrderEvent (or vetoes).
-    6. Engine holds the order — it will be executed at bar N+1's open.
-    7. On next iteration: execute the pending order at bar N+1's open,
-       then repeat from step 2.
-
-This "signal on bar N, fill on bar N+1 open" pattern is the canonical
-anti-look-ahead-bias pattern in event-driven backtesting.
 """
 from __future__ import annotations
 
@@ -29,10 +14,8 @@ from bossfx.core.events import (
     FillEvent,
     OrderEvent,
     OrderSide,
-    SignalAction,
-    SignalEvent,
 )
-from bossfx.core.interfaces import DataFeed, Executor, RiskManager, Strategy
+from bossfx.core.interfaces import DataFeed, RiskManager, Strategy
 from bossfx.core.portfolio import CashPortfolio
 from bossfx.utils.logger import get_logger
 
@@ -56,7 +39,7 @@ class BacktestResult:
     signals_emitted: int
     orders_placed: int
     fills_executed: int
-    trades: List[dict]  # simple trade log for analytics
+    trades: List[dict]
 
 
 class BacktestEngine:
@@ -65,7 +48,7 @@ class BacktestEngine:
         data_feed: DataFeed,
         strategy: Strategy,
         risk_manager: RiskManager,
-        executor,  # SimulatedExecutor specifically, for stop/target checks
+        executor,
         portfolio: CashPortfolio,
     ) -> None:
         self._feed = data_feed
@@ -81,7 +64,6 @@ class BacktestEngine:
         self._trade_log: List[dict] = []
         self._current_entry: Optional[dict] = None
 
-    # --------------------------------------------------------------------- #
     def run(self) -> BacktestResult:
         log.info(f"Starting backtest: {self._feed.symbol} {self._feed.timeframe}")
         log.info(f"Initial cash: {self._portfolio.initial_cash:,.2f}")
@@ -90,11 +72,8 @@ class BacktestEngine:
             self._stats["bars"] += 1
             self._process_bar(bar)
 
-        # Close any remaining position at the final bar's close for clean accounting
         if self._open_ctx is not None:
             log.info("Closing final open position at end of data")
-            # Build a synthetic exit at last known close
-            # (The portfolio is already marked-to-market there.)
 
         log.info(
             f"Backtest complete. Bars={self._stats['bars']} "
@@ -114,9 +93,7 @@ class BacktestEngine:
             trades=self._trade_log,
         )
 
-    # --------------------------------------------------------------------- #
     def _process_bar(self, bar: BarEvent) -> None:
-        # 1. Check intrabar stops/targets on open position (BEFORE anything else)
         if self._open_ctx is not None:
             hit = self._executor.check_intrabar_stops(
                 bar=bar,
@@ -128,32 +105,26 @@ class BacktestEngine:
                 reason, exit_price = hit
                 self._force_exit(bar, exit_price, reason)
 
-        # 2. Execute any pending order at this bar's open
         if self._pending_order is not None:
             fill = self._executor.execute(self._pending_order, bar)
             if fill is not None:
                 self._apply_fill(fill, self._pending_order)
             self._pending_order = None
 
-        # 3. Mark-to-market
         self._portfolio.on_bar(bar)
 
-        # 4. Strategy sees the bar
         signal = self._strategy.on_bar(bar)
         if signal is None:
             return
         self._stats["signals"] += 1
 
-        # 5. Risk manager sizes it
         order = self._risk.size_order(signal, bar, self._portfolio.equity)
         if order is None:
             return
         self._stats["orders"] += 1
 
-        # 6. Queue for next bar's open
         self._pending_order = order
 
-    # --------------------------------------------------------------------- #
     def _apply_fill(self, fill: FillEvent, order: OrderEvent) -> None:
         """Apply fill to portfolio + update open-position context + trade log."""
         position_before = self._portfolio.position(fill.symbol).quantity
@@ -161,7 +132,6 @@ class BacktestEngine:
         self._stats["fills"] += 1
         position_after = self._portfolio.position(fill.symbol).quantity
 
-        # Opening a new position (was flat, now not)
         if position_before == 0 and position_after != 0:
             self._open_ctx = OpenPositionContext(
                 side=OrderSide.BUY if position_after > 0 else OrderSide.SELL,
@@ -179,12 +149,10 @@ class BacktestEngine:
             }
             log.debug(f"OPEN {self._open_ctx.side.value} @ {fill.fill_price:.5f} qty={abs(position_after):.2f}")
 
-        # Closing to flat
         elif position_before != 0 and position_after == 0:
             self._close_trade_log(fill.timestamp, fill.fill_price, "signal")
             self._open_ctx = None
 
-        # Flipping direction
         elif position_before * position_after < 0:
             self._close_trade_log(fill.timestamp, fill.fill_price, "flip")
             self._open_ctx = OpenPositionContext(
@@ -225,9 +193,6 @@ class BacktestEngine:
         position = self._portfolio.position(bar.symbol)
         exit_side = OrderSide.SELL if position.quantity > 0 else OrderSide.BUY
 
-        # Synthetic fill: no slippage modeled on stop/target since the price
-        # is assumed to be the trigger price itself (pessimistic: see docstring
-        # in execution_sim).
         fill = FillEvent(
             symbol=bar.symbol,
             timestamp=bar.timestamp,
@@ -242,7 +207,6 @@ class BacktestEngine:
         self._stats["fills"] += 1
         self._close_trade_log(bar.timestamp, exit_price, reason)
         self._open_ctx = None
-        # Cancel any pending order — we're flat now
         self._pending_order = None
         log.debug(f"FORCE EXIT ({reason}) @ {exit_price:.5f}")
 

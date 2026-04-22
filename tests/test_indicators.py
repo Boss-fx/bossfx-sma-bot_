@@ -4,16 +4,6 @@ Tests for online indicators — TIER 2 (no-look-ahead invariants).
 The central invariant: an online indicator can NEVER produce a value
 based on data it hasn't seen yet. If this holds structurally, look-ahead
 bias is *impossible* — not just unlikely.
-
-The proof technique:
-    1. Stream a prefix of length N into indicator A. Record A's value.
-    2. Stream the same prefix of length N into indicator B, then stream
-       extra "future" data.
-    3. Go back and ask B what value it produced at step N.
-       (We simulate this by restarting B and re-streaming only the prefix.)
-    4. A's value at N must equal B's value at N — regardless of what
-       came after. If equality holds, future data has no effect on past
-       values. QED.
 """
 from __future__ import annotations
 
@@ -27,15 +17,15 @@ class TestSMABasicMath(unittest.TestCase):
         s = SMA(period=3)
         self.assertIsNone(s.update(1.0))
         self.assertIsNone(s.update(2.0))
-        self.assertEqual(s.update(3.0), 2.0)   # (1+2+3)/3 = 2
+        self.assertEqual(s.update(3.0), 2.0)
         self.assertTrue(s.is_warm)
 
     def test_rolls_correctly(self):
         s = SMA(period=3)
         for v in [1.0, 2.0, 3.0]:
             s.update(v)
-        self.assertEqual(s.update(4.0), 3.0)   # (2+3+4)/3
-        self.assertEqual(s.update(5.0), 4.0)   # (3+4+5)/3
+        self.assertEqual(s.update(4.0), 3.0)
+        self.assertEqual(s.update(5.0), 4.0)
 
     def test_rejects_zero_or_negative_period(self):
         with self.assertRaises(ValueError):
@@ -61,8 +51,8 @@ class TestSMANoLookAhead(unittest.TestCase):
 
     def test_future_data_cannot_alter_past_values(self):
         prefix = [1.0, 2.0, 3.0, 4.0, 5.0]
-        future_scenario_a = [100.0, 200.0, 300.0]    # big spike
-        future_scenario_b = [-50.0, -60.0, -70.0]    # big drop
+        future_scenario_a = [100.0, 200.0, 300.0]
+        future_scenario_b = [-50.0, -60.0, -70.0]
 
         s1 = SMA(period=3)
         sma_at_5_scenario_a = [s1.update(v) for v in prefix][-1]
@@ -87,9 +77,11 @@ class TestSMANoLookAhead(unittest.TestCase):
     def test_update_order_matters_but_history_does_not_mutate(self):
         """Calling update(x) after getting a value must not change that value."""
         s = SMA(period=3)
-        s.update(1.0); s.update(2.0)
+        s.update(1.0)
+        s.update(2.0)
         val_at_3 = s.update(3.0)
-        s.update(99.0); s.update(100.0)
+        s.update(99.0)
+        s.update(100.0)
         self.assertEqual(val_at_3, 2.0)
 
 
@@ -124,11 +116,9 @@ class TestATR(unittest.TestCase):
         a2 = ATR(period=3)
         for high, low, close in prefix:
             a2.update(high, low, close)
-        # Spike the future
         a2.update(10.0, 5.0, 7.5)
         a2.update(20.0, 10.0, 15.0)
 
-        # Go back and compute again from scratch with ONLY the prefix
         a3 = ATR(period=3)
         for high, low, close in prefix:
             a3.update(high, low, close)
