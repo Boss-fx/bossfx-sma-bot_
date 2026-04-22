@@ -2,11 +2,11 @@
 scripts.run_backtest
 ====================
 
-Phase 1 CLI entry point. Usage:
+BossFx CLI entry point. Usage:
 
-    python -m scripts.run_backtest --config configs/eurusd_sma_default.yaml
+    python3 -m scripts.run_backtest --config configs/eurusd_sma_default.yaml
 
-This is thin on purpose — all behavior is driven by the YAML config.
+All behavior is driven by the YAML config.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ import argparse
 import sys
 from pathlib import Path
 
-# Make package importable when running as a script
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from bossfx.analytics.metrics import compute_report
@@ -59,9 +58,20 @@ def main() -> int:
     log.info(f"Loaded config: {args.config}")
 
     feed = build_feed(cfg)
+
+    # Build the filter chain based on config. Phase 2.1 supports the trend
+    # filter. Phase 2.2/2.3 will add volatility and session filters here.
+    filters = []
+    if cfg.strategy.use_trend_filter:
+        from bossfx.strategies.filters.trend import TrendFilter
+
+        filters.append(TrendFilter(period=cfg.strategy.trend_filter_period))
+        log.info(f"Trend filter ENABLED with EMA({cfg.strategy.trend_filter_period})")
+
     strategy = SMACrossoverStrategy(
         fast_period=cfg.strategy.fast_period,
         slow_period=cfg.strategy.slow_period,
+        filters=filters,
     )
     portfolio = CashPortfolio(initial_cash=cfg.risk.initial_cash)
     risk = PercentRiskManager(
@@ -87,6 +97,17 @@ def main() -> int:
         portfolio=portfolio,
     )
     result = engine.run()
+
+    # Report filter stats if any filter is attached
+    for f in filters:
+        stats = f.stats()
+        log.info(
+            f"Filter {type(f).__name__}: "
+            f"passed={stats['passed']}, "
+            f"vetoed_longs={stats['vetoed_longs']}, "
+            f"vetoed_shorts={stats['vetoed_shorts']}, "
+            f"veto_rate={stats['veto_rate']:.1%}"
+        )
 
     report = compute_report(
         equity_curve=portfolio.equity_curve(),

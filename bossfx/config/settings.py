@@ -49,6 +49,9 @@ class StrategyConfig:
     name: str = "sma_crossover"
     fast_period: int = 20
     slow_period: int = 50
+    # Phase 2.1 - optional HTF trend filter
+    use_trend_filter: bool = False
+    trend_filter_period: int = 200
 
     def validate(self) -> None:
         if self.fast_period <= 0 or self.slow_period <= 0:
@@ -57,6 +60,8 @@ class StrategyConfig:
             raise ValueError(
                 f"fast_period ({self.fast_period}) must be < slow_period ({self.slow_period})"
             )
+        if self.use_trend_filter and self.trend_filter_period <= 0:
+            raise ValueError("trend_filter_period must be > 0 when filter is enabled")
 
 
 @dataclass
