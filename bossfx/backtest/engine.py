@@ -4,6 +4,7 @@ bossfx.backtest.engine
 
 The event-driven backtest engine.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -147,7 +148,9 @@ class BacktestEngine:
                 "stop_loss": order.stop_loss,
                 "take_profit": order.take_profit,
             }
-            log.debug(f"OPEN {self._open_ctx.side.value} @ {fill.fill_price:.5f} qty={abs(position_after):.2f}")
+            log.debug(
+                f"OPEN {self._open_ctx.side.value} @ {fill.fill_price:.5f} qty={abs(position_after):.2f}"
+            )
 
         elif position_before != 0 and position_after == 0:
             self._close_trade_log(fill.timestamp, fill.fill_price, "signal")
@@ -176,13 +179,15 @@ class BacktestEngine:
         entry = self._current_entry
         direction = 1 if entry["side"] == "BUY" else -1
         gross_pnl = (exit_price - entry["entry_price"]) * entry["quantity"] * direction
-        self._trade_log.append({
-            **entry,
-            "exit_time": exit_time,
-            "exit_price": exit_price,
-            "exit_reason": reason,
-            "gross_pnl": gross_pnl,
-        })
+        self._trade_log.append(
+            {
+                **entry,
+                "exit_time": exit_time,
+                "exit_price": exit_price,
+                "exit_reason": reason,
+                "gross_pnl": gross_pnl,
+            }
+        )
         self._current_entry = None
 
     def _force_exit(self, bar: BarEvent, exit_price: float, reason: str) -> None:

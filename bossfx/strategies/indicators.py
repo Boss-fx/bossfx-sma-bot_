@@ -16,6 +16,7 @@ Online indicators receive one value at a time and can only return results
 based on values already seen. If the strategy can't compute tomorrow's
 SMA, it can't cheat with it. The bias becomes structurally impossible.
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -35,7 +36,7 @@ class SMA:
     def update(self, value: float) -> Optional[float]:
         """Push a new value. Returns the SMA if warm, else None."""
         if len(self._buf) == self.period:
-            self._sum -= self._buf[0]   # evicted when we append below
+            self._sum -= self._buf[0]  # evicted when we append below
         self._buf.append(value)
         self._sum += value
         if len(self._buf) < self.period:

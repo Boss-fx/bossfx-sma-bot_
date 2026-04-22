@@ -16,6 +16,7 @@ evaluate a strategy. Here's what matters instead:
 * **Profit Factor**: gross wins / gross losses. >1.5 is good, >2 is great.
 * **Expectancy**: average $ gained per trade. The long-run truth-teller.
 """
+
 from __future__ import annotations
 
 import math
@@ -104,7 +105,11 @@ def compute_report(
 
     span_days = (df.index[-1] - df.index[0]).total_seconds() / 86400
     years = max(span_days / 365.25, 1e-9)
-    cagr_pct = ((equity.iloc[-1] / initial_cash) ** (1 / years) - 1) * 100 if equity.iloc[-1] > 0 else -100.0
+    cagr_pct = (
+        ((equity.iloc[-1] / initial_cash) ** (1 / years) - 1) * 100
+        if equity.iloc[-1] > 0
+        else -100.0
+    )
 
     # ---- Volatility (annualized) ----
     ann_factor = ANNUALIZATION.get(timeframe.lower(), 252)
@@ -148,7 +153,11 @@ def compute_report(
         wins = pnls[pnls > 0]
         losses = pnls[pnls < 0]
         win_rate_pct = (len(wins) / num_trades) * 100
-        profit_factor = wins.sum() / abs(losses.sum()) if len(losses) > 0 and losses.sum() != 0 else float("inf")
+        profit_factor = (
+            wins.sum() / abs(losses.sum())
+            if len(losses) > 0 and losses.sum() != 0
+            else float("inf")
+        )
         expectancy = pnls.mean()
         avg_win = wins.mean() if len(wins) > 0 else 0.0
         avg_loss = losses.mean() if len(losses) > 0 else 0.0

@@ -7,6 +7,7 @@ A CSV-backed data feed. Essential because:
   2. Downloaded data can be cached as CSV/Parquet to avoid hammering APIs.
   3. Many brokers export history as CSV — this is how you onboard real data.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

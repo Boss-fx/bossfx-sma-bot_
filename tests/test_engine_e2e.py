@@ -9,6 +9,7 @@ portfolio) against our deterministic fixture CSV and verifies:
   * No negative equity (would mean catastrophic accounting bug).
   * Trades are well-formed (have entry + exit).
 """
+
 from __future__ import annotations
 
 import unittest
@@ -31,16 +32,23 @@ class TestEngineEndToEnd(unittest.TestCase):
         strategy = SMACrossoverStrategy(fast_period=20, slow_period=50)
         portfolio = CashPortfolio(initial_cash=10_000.0)
         risk = PercentRiskManager(
-            portfolio=portfolio, risk_per_trade_pct=0.01,
-            stop_loss_pct=0.005, take_profit_pct=0.010,
+            portfolio=portfolio,
+            risk_per_trade_pct=0.01,
+            stop_loss_pct=0.005,
+            take_profit_pct=0.010,
             max_position_pct=0.20,
         )
         executor = SimulatedExecutor(
-            spread_pips=1.0, slippage_pips=0.5, commission_per_lot=7.0,
+            spread_pips=1.0,
+            slippage_pips=0.5,
+            commission_per_lot=7.0,
         )
         engine = BacktestEngine(
-            data_feed=feed, strategy=strategy, risk_manager=risk,
-            executor=executor, portfolio=portfolio,
+            data_feed=feed,
+            strategy=strategy,
+            risk_manager=risk,
+            executor=executor,
+            portfolio=portfolio,
         )
 
         result = engine.run()
@@ -62,8 +70,11 @@ class TestEngineEndToEnd(unittest.TestCase):
         risk = PercentRiskManager(portfolio=portfolio)
         executor = SimulatedExecutor()
         engine = BacktestEngine(
-            data_feed=feed, strategy=strategy, risk_manager=risk,
-            executor=executor, portfolio=portfolio,
+            data_feed=feed,
+            strategy=strategy,
+            risk_manager=risk,
+            executor=executor,
+            portfolio=portfolio,
         )
         result = engine.run()
         for t in result.trades:

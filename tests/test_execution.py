@@ -7,6 +7,7 @@ Invariants:
   * Commission is always positive (cost)
   * Intrabar stop check: if bar touches stop, we fill at the stop level
 """
+
 from __future__ import annotations
 
 import unittest
@@ -14,23 +15,34 @@ from datetime import datetime
 
 from bossfx.backtest.execution_sim import SimulatedExecutor
 from bossfx.core.events import (
-    BarEvent, OrderEvent, OrderSide, OrderType,
+    BarEvent,
+    OrderEvent,
+    OrderSide,
+    OrderType,
 )
 
 
 def _next_bar(open_price, high=None, low=None):
     high = high if high is not None else open_price + 0.005
-    low  = low  if low  is not None else open_price - 0.005
+    low = low if low is not None else open_price - 0.005
     return BarEvent(
-        symbol="EURUSD", timestamp=datetime(2024, 1, 1, 1),
-        open=open_price, high=high, low=low, close=open_price, volume=100.0,
+        symbol="EURUSD",
+        timestamp=datetime(2024, 1, 1, 1),
+        open=open_price,
+        high=high,
+        low=low,
+        close=open_price,
+        volume=100.0,
     )
 
 
 def _order(side):
     return OrderEvent(
-        symbol="EURUSD", timestamp=datetime(2024, 1, 1),
-        side=side, order_type=OrderType.MARKET, quantity=100_000,
+        symbol="EURUSD",
+        timestamp=datetime(2024, 1, 1),
+        side=side,
+        order_type=OrderType.MARKET,
+        quantity=100_000,
         order_id="test",
     )
 
@@ -66,47 +78,99 @@ class TestIntrabarStopCheck(unittest.TestCase):
     def test_long_stop_hit_when_low_below_stop(self):
         exe = SimulatedExecutor()
         # Long position: stop at 1.095. Bar low = 1.09 -> stop triggered.
-        bar = BarEvent(symbol="EURUSD", timestamp=datetime(2024, 1, 1),
-                       open=1.10, high=1.11, low=1.09, close=1.095, volume=1.0)
+        bar = BarEvent(
+            symbol="EURUSD",
+            timestamp=datetime(2024, 1, 1),
+            open=1.10,
+            high=1.11,
+            low=1.09,
+            close=1.095,
+            volume=1.0,
+        )
         result = exe.check_intrabar_stops(
-            bar, OrderSide.BUY, stop_loss=1.095, take_profit=1.15,
+            bar,
+            OrderSide.BUY,
+            stop_loss=1.095,
+            take_profit=1.15,
         )
         self.assertEqual(result, ("stop", 1.095))
 
     def test_long_target_hit_when_high_above_target(self):
         exe = SimulatedExecutor()
-        bar = BarEvent(symbol="EURUSD", timestamp=datetime(2024, 1, 1),
-                       open=1.10, high=1.16, low=1.099, close=1.15, volume=1.0)
+        bar = BarEvent(
+            symbol="EURUSD",
+            timestamp=datetime(2024, 1, 1),
+            open=1.10,
+            high=1.16,
+            low=1.099,
+            close=1.15,
+            volume=1.0,
+        )
         result = exe.check_intrabar_stops(
-            bar, OrderSide.BUY, stop_loss=1.095, take_profit=1.15,
+            bar,
+            OrderSide.BUY,
+            stop_loss=1.095,
+            take_profit=1.15,
         )
         self.assertEqual(result, ("target", 1.15))
 
     def test_both_hit_pessimistic_returns_stop(self):
         exe = SimulatedExecutor()
         # Wide bar that touches BOTH stop and target. We assume stop first.
-        bar = BarEvent(symbol="EURUSD", timestamp=datetime(2024, 1, 1),
-                       open=1.10, high=1.16, low=1.09, close=1.10, volume=1.0)
+        bar = BarEvent(
+            symbol="EURUSD",
+            timestamp=datetime(2024, 1, 1),
+            open=1.10,
+            high=1.16,
+            low=1.09,
+            close=1.10,
+            volume=1.0,
+        )
         result = exe.check_intrabar_stops(
-            bar, OrderSide.BUY, stop_loss=1.095, take_profit=1.15,
+            bar,
+            OrderSide.BUY,
+            stop_loss=1.095,
+            take_profit=1.15,
         )
         self.assertEqual(result[0], "stop")
 
     def test_no_hit_returns_none(self):
         exe = SimulatedExecutor()
-        bar = BarEvent(symbol="EURUSD", timestamp=datetime(2024, 1, 1),
-                       open=1.10, high=1.105, low=1.099, close=1.102, volume=1.0)
-        self.assertIsNone(exe.check_intrabar_stops(
-            bar, OrderSide.BUY, stop_loss=1.095, take_profit=1.15,
-        ))
+        bar = BarEvent(
+            symbol="EURUSD",
+            timestamp=datetime(2024, 1, 1),
+            open=1.10,
+            high=1.105,
+            low=1.099,
+            close=1.102,
+            volume=1.0,
+        )
+        self.assertIsNone(
+            exe.check_intrabar_stops(
+                bar,
+                OrderSide.BUY,
+                stop_loss=1.095,
+                take_profit=1.15,
+            )
+        )
 
     def test_short_position_stops_and_targets_inverted(self):
         exe = SimulatedExecutor()
         # Short: stop ABOVE entry, target BELOW. Bar high hits stop.
-        bar = BarEvent(symbol="EURUSD", timestamp=datetime(2024, 1, 1),
-                       open=1.10, high=1.12, low=1.10, close=1.11, volume=1.0)
+        bar = BarEvent(
+            symbol="EURUSD",
+            timestamp=datetime(2024, 1, 1),
+            open=1.10,
+            high=1.12,
+            low=1.10,
+            close=1.11,
+            volume=1.0,
+        )
         result = exe.check_intrabar_stops(
-            bar, OrderSide.SELL, stop_loss=1.11, take_profit=1.08,
+            bar,
+            OrderSide.SELL,
+            stop_loss=1.11,
+            take_profit=1.08,
         )
         self.assertEqual(result, ("stop", 1.11))
 

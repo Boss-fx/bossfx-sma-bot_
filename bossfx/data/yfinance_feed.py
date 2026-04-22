@@ -11,6 +11,7 @@ unofficial aggregated data with small rounding mismatches in OHLC values
 so the rest of the system can trust the data. For production, use MT5
 historical or Dukascopy.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -80,9 +81,7 @@ class YFinanceDataFeed(DataFeed):
         df = df.rename(columns=rename_map)
 
         if "timestamp" not in df.columns:
-            raise RuntimeError(
-                f"Could not find date column. Got: {list(df.columns)}"
-            )
+            raise RuntimeError(f"Could not find date column. Got: {list(df.columns)}")
 
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
         df = df[["timestamp", "open", "high", "low", "close", "volume"]].dropna()

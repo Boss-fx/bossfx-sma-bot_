@@ -8,6 +8,7 @@ Phase 1 CLI entry point. Usage:
 
 This is thin on purpose — all behavior is driven by the YAML config.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,6 +38,7 @@ def build_feed(cfg):
         )
     if cfg.data.source == "yfinance":
         from bossfx.data.yfinance_feed import YFinanceDataFeed
+
         return YFinanceDataFeed(
             symbol=cfg.data.symbol,
             start=cfg.data.start,

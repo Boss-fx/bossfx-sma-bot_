@@ -19,6 +19,7 @@ about this strategy, and drops signal count by ~95%.
 
 Phase 2 will layer trend/volatility/session filters on top of this core.
 """
+
 from __future__ import annotations
 
 from typing import Optional

@@ -9,6 +9,7 @@ P&L calculation happens here. Keeping this concentrated in one place means
 you can audit every dollar that moves — and auditability is what separates
 a toy from a fintech product.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -65,12 +66,15 @@ class CashPortfolio(Portfolio):
         signed_qty = fill.quantity if fill.side == OrderSide.BUY else -fill.quantity
 
         # Case A: opening or adding in same direction
-        if pos.quantity == 0 or (pos.quantity > 0 and signed_qty > 0) or (pos.quantity < 0 and signed_qty < 0):
+        if (
+            pos.quantity == 0
+            or (pos.quantity > 0 and signed_qty > 0)
+            or (pos.quantity < 0 and signed_qty < 0)
+        ):
             new_qty = pos.quantity + signed_qty
             pos.avg_price = (
-                (pos.avg_price * abs(pos.quantity) + fill.fill_price * abs(signed_qty))
-                / abs(new_qty)
-            )
+                pos.avg_price * abs(pos.quantity) + fill.fill_price * abs(signed_qty)
+            ) / abs(new_qty)
             pos.quantity = new_qty
 
         # Case B: reducing or flipping position

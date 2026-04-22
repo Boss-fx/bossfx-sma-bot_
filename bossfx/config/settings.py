@@ -14,6 +14,7 @@ messages — but the public API stays identical.
 YAML -> Config object -> rest of the system. One source of truth for
 parameters. No hardcoded values anywhere.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -27,7 +28,7 @@ import yaml
 # --------------------------------------------------------------------------- #
 @dataclass
 class DataConfig:
-    source: str = "csv"                 # 'csv' or 'yfinance'
+    source: str = "csv"  # 'csv' or 'yfinance'
     symbol: str = "EURUSD=X"
     timeframe: str = "1h"
     start: Optional[datetime] = None

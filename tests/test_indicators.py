@@ -5,6 +5,7 @@ The central invariant: an online indicator can NEVER produce a value
 based on data it hasn't seen yet. If this holds structurally, look-ahead
 bias is *impossible* — not just unlikely.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -36,6 +37,7 @@ class TestSMABasicMath(unittest.TestCase):
     def test_matches_naive_average(self):
         """Sanity: online SMA == naive mean of the last N values."""
         import random
+
         random.seed(123)
         values = [random.uniform(1.0, 2.0) for _ in range(200)]
         s = SMA(period=20)
@@ -94,6 +96,7 @@ class TestATR(unittest.TestCase):
 
     def test_atr_is_nonnegative(self):
         import random
+
         random.seed(42)
         a = ATR(period=14)
         for _ in range(100):
@@ -106,8 +109,7 @@ class TestATR(unittest.TestCase):
 
     def test_no_look_ahead_atr(self):
         """Same structural test as SMA."""
-        prefix = [(1.1, 1.0, 1.05), (1.12, 1.05, 1.10), (1.13, 1.08, 1.11),
-                  (1.14, 1.10, 1.12)]
+        prefix = [(1.1, 1.0, 1.05), (1.12, 1.05, 1.10), (1.13, 1.08, 1.11), (1.14, 1.10, 1.12)]
         a1 = ATR(period=3)
         for high, low, close in prefix:
             a1.update(high, low, close)

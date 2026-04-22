@@ -5,6 +5,7 @@ Two things we must get right:
   1. Fires ONLY on the crossover bar — not every bar where fast > slow.
   2. Emits nothing during warmup.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -20,8 +21,13 @@ def _feed_closes(strat, closes, start=None):
     signals = []
     for i, c in enumerate(closes):
         bar = BarEvent(
-            symbol="EURUSD", timestamp=start + timedelta(hours=i),
-            open=c, high=c + 0.001, low=c - 0.001, close=c, volume=100.0,
+            symbol="EURUSD",
+            timestamp=start + timedelta(hours=i),
+            open=c,
+            high=c + 0.001,
+            low=c - 0.001,
+            close=c,
+            volume=100.0,
         )
         sig = strat.on_bar(bar)
         if sig is not None:
@@ -32,7 +38,7 @@ def _feed_closes(strat, closes, start=None):
 class TestWarmup(unittest.TestCase):
     def test_no_signals_during_warmup(self):
         strat = SMACrossoverStrategy(fast_period=3, slow_period=5)
-        signals = _feed_closes(strat, [1.0, 1.0, 1.0, 1.0])   # only 4 bars
+        signals = _feed_closes(strat, [1.0, 1.0, 1.0, 1.0])  # only 4 bars
         self.assertEqual(signals, [])
 
     def test_warmup_period_is_slow_period(self):
@@ -49,8 +55,7 @@ class TestCrossoverDetection(unittest.TestCase):
         signals = _feed_closes(strat, closes)
         # Should fire LONG exactly once, and never fire again while trend holds
         longs = [s for s in signals if s[1] == SignalAction.LONG]
-        self.assertEqual(len(longs), 1,
-                         f"Expected exactly one LONG, got {signals}")
+        self.assertEqual(len(longs), 1, f"Expected exactly one LONG, got {signals}")
 
     def test_bearish_cross_emits_short_once(self):
         strat = SMACrossoverStrategy(fast_period=2, slow_period=4)
@@ -62,8 +67,9 @@ class TestCrossoverDetection(unittest.TestCase):
     def test_flip_emits_both_signals(self):
         strat = SMACrossoverStrategy(fast_period=2, slow_period=4)
         # Rise, then fall
-        closes = ([1.0] * 4 + [1.01, 1.02, 1.03, 1.04, 1.05]
-                  + [1.00, 0.98, 0.95, 0.92, 0.89, 0.86, 0.83])
+        closes = (
+            [1.0] * 4 + [1.01, 1.02, 1.03, 1.04, 1.05] + [1.00, 0.98, 0.95, 0.92, 0.89, 0.86, 0.83]
+        )
         signals = _feed_closes(strat, closes)
         actions = [s[1] for s in signals]
         self.assertIn(SignalAction.LONG, actions)

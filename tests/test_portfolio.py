@@ -10,6 +10,7 @@ trading system — worse than a crash, because it fails silently.
 
 Every test here exists to defend against that.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -21,17 +22,26 @@ from bossfx.core.portfolio import CashPortfolio
 
 def _bar(sym, ts, close, high=None, low=None):
     return BarEvent(
-        symbol=sym, timestamp=ts,
-        open=close, high=high or close + 0.001,
-        low=low or close - 0.001, close=close, volume=100.0,
+        symbol=sym,
+        timestamp=ts,
+        open=close,
+        high=high or close + 0.001,
+        low=low or close - 0.001,
+        close=close,
+        volume=100.0,
     )
 
 
 def _fill(sym, ts, side, qty, price, commission=0.0):
     return FillEvent(
-        symbol=sym, timestamp=ts, side=side,
-        quantity=qty, fill_price=price,
-        commission=commission, slippage=0.0, order_id="t",
+        symbol=sym,
+        timestamp=ts,
+        side=side,
+        quantity=qty,
+        fill_price=price,
+        commission=commission,
+        slippage=0.0,
+        order_id="t",
     )
 
 
@@ -74,8 +84,7 @@ class TestLongRoundTrip(unittest.TestCase):
     def test_close_realizes_pnl(self):
         self.p.on_fill(_fill("EURUSD", self.t0, OrderSide.BUY, 1000, 1.10))
         self.p.on_bar(_bar("EURUSD", self.t0 + timedelta(hours=1), 1.12))
-        self.p.on_fill(_fill("EURUSD", self.t0 + timedelta(hours=2),
-                              OrderSide.SELL, 1000, 1.12))
+        self.p.on_fill(_fill("EURUSD", self.t0 + timedelta(hours=2), OrderSide.SELL, 1000, 1.12))
         # After close, cash = 10_000 + 20 = 10_020. Position is flat.
         self.assertAlmostEqual(self.p.cash, 10_020, places=4)
         self.assertTrue(self.p.position("EURUSD").is_flat())
@@ -128,8 +137,9 @@ class TestAccountingInvariant(unittest.TestCase):
         # Build up a position in 3 adds
         prices = [1.10, 1.11, 1.12]
         for i, px in enumerate(prices):
-            p.on_fill(_fill("EURUSD", t0 + timedelta(hours=i),
-                            OrderSide.BUY, 100, px, commission=0.5))
+            p.on_fill(
+                _fill("EURUSD", t0 + timedelta(hours=i), OrderSide.BUY, 100, px, commission=0.5)
+            )
         p.on_bar(_bar("EURUSD", t0 + timedelta(hours=3), 1.15))
         pos = p.position("EURUSD")
         expected_avg = (1.10 + 1.11 + 1.12) / 3
@@ -144,8 +154,9 @@ class TestAccountingInvariant(unittest.TestCase):
         p = CashPortfolio(initial_cash=10_000)
         t0 = datetime(2024, 1, 1)
         p.on_fill(_fill("EURUSD", t0, OrderSide.BUY, 1000, 1.10, commission=3.0))
-        p.on_fill(_fill("EURUSD", t0 + timedelta(hours=1),
-                          OrderSide.SELL, 1000, 1.09, commission=3.0))
+        p.on_fill(
+            _fill("EURUSD", t0 + timedelta(hours=1), OrderSide.SELL, 1000, 1.09, commission=3.0)
+        )
         # Lost 10 on price + 6 commission = 9_984
         self.assertAlmostEqual(p.cash, 9_984, places=4)
 

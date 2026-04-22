@@ -6,6 +6,7 @@ The core sizing equation:
 
 Plus: drawdown circuit breaker must halt trading when DD exceeds the cap.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -18,15 +19,23 @@ from bossfx.risk.risk_manager import PercentRiskManager
 
 def _bar(close):
     return BarEvent(
-        symbol="EURUSD", timestamp=datetime(2024, 1, 1),
-        open=close, high=close + 0.001, low=close - 0.001, close=close, volume=100.0,
+        symbol="EURUSD",
+        timestamp=datetime(2024, 1, 1),
+        open=close,
+        high=close + 0.001,
+        low=close - 0.001,
+        close=close,
+        volume=100.0,
     )
 
 
 def _signal(action):
     return SignalEvent(
-        symbol="EURUSD", timestamp=datetime(2024, 1, 1),
-        action=action, strategy_id="test", reference_price=1.10,
+        symbol="EURUSD",
+        timestamp=datetime(2024, 1, 1),
+        action=action,
+        strategy_id="test",
+        reference_price=1.10,
     )
 
 
@@ -34,8 +43,10 @@ class TestPositionSizing(unittest.TestCase):
     def test_sizing_follows_the_formula(self):
         p = CashPortfolio(initial_cash=10_000)
         rm = PercentRiskManager(
-            portfolio=p, risk_per_trade_pct=0.01,
-            stop_loss_pct=0.01, take_profit_pct=0.02,
+            portfolio=p,
+            risk_per_trade_pct=0.01,
+            stop_loss_pct=0.01,
+            take_profit_pct=0.02,
             max_position_pct=1.0,  # disable cap for this test
         )
         order = rm.size_order(_signal(SignalAction.LONG), _bar(1.10), equity=10_000)
@@ -50,8 +61,11 @@ class TestPositionSizing(unittest.TestCase):
     def test_short_sizing_and_stop_placement(self):
         p = CashPortfolio(initial_cash=10_000)
         rm = PercentRiskManager(
-            portfolio=p, risk_per_trade_pct=0.01,
-            stop_loss_pct=0.01, take_profit_pct=0.02, max_position_pct=1.0,
+            portfolio=p,
+            risk_per_trade_pct=0.01,
+            stop_loss_pct=0.01,
+            take_profit_pct=0.02,
+            max_position_pct=1.0,
         )
         order = rm.size_order(_signal(SignalAction.SHORT), _bar(1.10), equity=10_000)
         self.assertIsNotNone(order)
@@ -63,9 +77,11 @@ class TestPositionSizing(unittest.TestCase):
     def test_max_position_cap_is_enforced(self):
         p = CashPortfolio(initial_cash=10_000)
         rm = PercentRiskManager(
-            portfolio=p, risk_per_trade_pct=0.05,   # aggressive
-            stop_loss_pct=0.001,                    # tiny stop => huge qty without cap
-            take_profit_pct=0.002, max_position_pct=0.20,
+            portfolio=p,
+            risk_per_trade_pct=0.05,  # aggressive
+            stop_loss_pct=0.001,  # tiny stop => huge qty without cap
+            take_profit_pct=0.002,
+            max_position_pct=0.20,
         )
         order = rm.size_order(_signal(SignalAction.LONG), _bar(1.10), equity=10_000)
         self.assertIsNotNone(order)
@@ -87,9 +103,7 @@ class TestExitHandling(unittest.TestCase):
     def test_exit_signal_with_no_position_returns_none(self):
         p = CashPortfolio(initial_cash=10_000)
         rm = PercentRiskManager(portfolio=p)
-        self.assertIsNone(
-            rm.size_order(_signal(SignalAction.EXIT), _bar(1.10), 10_000)
-        )
+        self.assertIsNone(rm.size_order(_signal(SignalAction.EXIT), _bar(1.10), 10_000))
 
 
 if __name__ == "__main__":

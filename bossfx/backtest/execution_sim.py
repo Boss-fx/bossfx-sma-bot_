@@ -12,6 +12,7 @@ Philosophy: err *pessimistic*. If your strategy only makes money after we
 apply a pessimistic execution model, then small improvements in reality
 (tighter spread, better broker) are upside — not required-for-survival.
 """
+
 from __future__ import annotations
 
 from typing import Optional

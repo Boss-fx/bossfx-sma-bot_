@@ -20,6 +20,7 @@ recover). Percent-risk sizing means losses shrink your position naturally.
 
 Phase 1 uses simple price-% stops. Phase 2 will plug in ATR-based stops.
 """
+
 from __future__ import annotations
 
 import uuid

@@ -15,6 +15,7 @@ any other USB device because they all honor the USB shape. Similarly:
 This is the *Dependency Inversion Principle* in practice — and it's what
 will let you sell this as SaaS one day without rewriting the core.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -34,13 +35,11 @@ class DataFeed(ABC):
 
     @property
     @abstractmethod
-    def symbol(self) -> str:
-        ...
+    def symbol(self) -> str: ...
 
     @property
     @abstractmethod
-    def timeframe(self) -> str:
-        ...
+    def timeframe(self) -> str: ...
 
 
 # --------------------------------------------------------------------------- #
@@ -96,8 +95,7 @@ class Portfolio(ABC):
     """Tracks positions, cash, equity. Single source of truth for account state."""
 
     @abstractmethod
-    def on_fill(self, fill: FillEvent) -> None:
-        ...
+    def on_fill(self, fill: FillEvent) -> None: ...
 
     @abstractmethod
     def on_bar(self, bar: BarEvent) -> None:
@@ -112,8 +110,7 @@ class Portfolio(ABC):
 
     @property
     @abstractmethod
-    def cash(self) -> float:
-        ...
+    def cash(self) -> float: ...
 
     @abstractmethod
     def equity_curve(self) -> List[tuple]:

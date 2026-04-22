@@ -5,6 +5,7 @@ Config mistakes are a leading cause of silent backtest lies. If someone
 types fast=50, slow=20 by accident and we don't catch it, they get
 garbage. These tests enforce that bad configs die at load time.
 """
+
 from __future__ import annotations
 
 import os
@@ -14,7 +15,11 @@ from pathlib import Path
 from textwrap import dedent
 
 from bossfx.config.settings import (
-    BacktestConfig, DataConfig, RiskConfig, StrategyConfig, load_config,
+    BacktestConfig,
+    DataConfig,
+    RiskConfig,
+    StrategyConfig,
+    load_config,
 )
 
 
@@ -36,9 +41,12 @@ class TestValidation(unittest.TestCase):
 
     def test_end_after_start(self):
         from datetime import datetime
+
         dc = DataConfig(
-            source="csv", csv_path="foo.csv",
-            start=datetime(2024, 1, 2), end=datetime(2024, 1, 1),
+            source="csv",
+            csv_path="foo.csv",
+            start=datetime(2024, 1, 2),
+            end=datetime(2024, 1, 1),
         )
         with self.assertRaises(ValueError):
             dc.validate()

@@ -6,6 +6,7 @@ Production-grade logging. Uses stdlib only (no external deps) but is
 designed so swapping in ``structlog`` or shipping to Datadog later
 requires no code changes in callers.
 """
+
 from __future__ import annotations
 
 import logging

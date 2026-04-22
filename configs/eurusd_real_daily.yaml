@@ -1,0 +1,28 @@
+data:
+  source: yfinance
+  symbol: EURUSD=X
+  timeframe: 1d
+  start: 2023-01-01
+  end: 2025-01-01
+  csv_path: null
+
+strategy:
+  name: sma_crossover
+  fast_period: 20
+  slow_period: 50
+
+risk:
+  initial_cash: 10000.0
+  risk_per_trade_pct: 0.01
+  max_position_pct: 0.20
+  stop_loss_pct: 0.010
+  take_profit_pct: 0.020
+
+execution:
+  spread_pips: 1.0
+  slippage_pips: 0.5
+  commission_per_lot: 7.0
+  pip_size: 0.0001
+  contract_size: 100000.0
+
+log_level: INFO
