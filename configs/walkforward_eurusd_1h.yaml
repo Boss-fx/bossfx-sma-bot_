@@ -1,0 +1,43 @@
+# BossFx - Phase 3 Run 2: intraday walk-forward validation
+# 1H EURUSD, ~2 years (yfinance max for intraday)
+# Train 12m / test 3m / step 3m -> 4-5 windows with 15-40 trades each
+
+data:
+  source: yfinance
+  symbol: EURUSD=X
+  timeframe: 1h
+  start: 2023-06-01
+  end: 2025-06-01
+  csv_path: null
+
+strategy:
+  name: sma_crossover
+  fast_period: 20
+  slow_period: 50
+
+risk:
+  initial_cash: 10000.0
+  risk_per_trade_pct: 0.01
+  max_position_pct: 0.20
+  stop_loss_pct: 0.005          # tighter stops for intraday
+  take_profit_pct: 0.010        # 1:2 RR preserved
+
+execution:
+  spread_pips: 1.0
+  slippage_pips: 0.5
+  commission_per_lot: 7.0
+  pip_size: 0.0001
+  contract_size: 100000.0
+
+walkforward:
+  train_months: 12
+  test_months: 3
+  step_months: 3
+  # Grid tuned for hourly bars: include wider combos that behave like
+  # "day vs week" scales on 1H (e.g. 30/150 ~ 1-day vs 1-week)
+  fast_periods: [10, 20, 30, 50]
+  slow_periods: [50, 100, 150, 200]
+  use_trend_filter_options: [false, true]
+  trend_filter_periods: [200]
+
+log_level: INFO

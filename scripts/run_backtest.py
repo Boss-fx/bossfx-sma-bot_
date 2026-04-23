@@ -2,11 +2,9 @@
 scripts.run_backtest
 ====================
 
-BossFx CLI entry point. Usage:
+BossFx CLI. Usage:
 
     python3 -m scripts.run_backtest --config configs/eurusd_sma_default.yaml
-
-All behavior is driven by the YAML config.
 """
 
 from __future__ import annotations
@@ -47,6 +45,52 @@ def build_feed(cfg):
     raise ValueError(f"Unknown data source: {cfg.data.source}")
 
 
+def build_filters(cfg, log):
+    """Construct the filter chain from config. Order matters for logging only."""
+    filters = []
+    if cfg.strategy.use_trend_filter:
+        from bossfx.strategies.filters.trend import TrendFilter
+
+        filters.append(TrendFilter(period=cfg.strategy.trend_filter_period))
+        log.info(f"Trend filter ENABLED with EMA({cfg.strategy.trend_filter_period})")
+    if cfg.strategy.use_volatility_filter:
+        from bossfx.strategies.filters.volatility import ATRVolatilityFilter
+
+        filters.append(
+            ATRVolatilityFilter(
+                atr_period=cfg.strategy.volatility_atr_period,
+                lookback=cfg.strategy.volatility_lookback,
+                min_ratio=cfg.strategy.volatility_min_ratio,
+                max_ratio=cfg.strategy.volatility_max_ratio,
+            )
+        )
+        log.info(
+            f"Volatility filter ENABLED: ATR({cfg.strategy.volatility_atr_period}) "
+            f"vs SMA({cfg.strategy.volatility_lookback}), "
+            f"ratio range [{cfg.strategy.volatility_min_ratio}, "
+            f"{cfg.strategy.volatility_max_ratio}]"
+        )
+    return filters
+
+
+def print_filter_stats(filters, log):
+    """Per-filter veto breakdown so we can diagnose which filter did what."""
+    if not filters:
+        return
+    log.info("=" * 60)
+    log.info("FILTER STATS (per-filter breakdown)")
+    log.info("=" * 60)
+    for f in filters:
+        name = type(f).__name__
+        stats = f.stats()
+        log.info(f"  {name}:")
+        for k, v in stats.items():
+            if isinstance(v, float):
+                log.info(f"    {k:20s} = {v:.3f}")
+            else:
+                log.info(f"    {k:20s} = {v}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="BossFx backtest runner")
     parser.add_argument("--config", required=True, help="Path to YAML config")
@@ -58,15 +102,7 @@ def main() -> int:
     log.info(f"Loaded config: {args.config}")
 
     feed = build_feed(cfg)
-
-    # Build the filter chain based on config. Phase 2.1 supports the trend
-    # filter. Phase 2.2/2.3 will add volatility and session filters here.
-    filters = []
-    if cfg.strategy.use_trend_filter:
-        from bossfx.strategies.filters.trend import TrendFilter
-
-        filters.append(TrendFilter(period=cfg.strategy.trend_filter_period))
-        log.info(f"Trend filter ENABLED with EMA({cfg.strategy.trend_filter_period})")
+    filters = build_filters(cfg, log)
 
     strategy = SMACrossoverStrategy(
         fast_period=cfg.strategy.fast_period,
@@ -98,16 +134,7 @@ def main() -> int:
     )
     result = engine.run()
 
-    # Report filter stats if any filter is attached
-    for f in filters:
-        stats = f.stats()
-        log.info(
-            f"Filter {type(f).__name__}: "
-            f"passed={stats['passed']}, "
-            f"vetoed_longs={stats['vetoed_longs']}, "
-            f"vetoed_shorts={stats['vetoed_shorts']}, "
-            f"veto_rate={stats['veto_rate']:.1%}"
-        )
+    print_filter_stats(filters, log)
 
     report = compute_report(
         equity_curve=portfolio.equity_curve(),

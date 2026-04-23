@@ -52,6 +52,12 @@ class StrategyConfig:
     # Phase 2.1 - optional HTF trend filter
     use_trend_filter: bool = False
     trend_filter_period: int = 200
+    # Phase 2.2 - optional ATR volatility filter
+    use_volatility_filter: bool = False
+    volatility_atr_period: int = 14
+    volatility_lookback: int = 100
+    volatility_min_ratio: float = 0.7
+    volatility_max_ratio: float = 1.5
 
     def validate(self) -> None:
         if self.fast_period <= 0 or self.slow_period <= 0:
@@ -62,6 +68,14 @@ class StrategyConfig:
             )
         if self.use_trend_filter and self.trend_filter_period <= 0:
             raise ValueError("trend_filter_period must be > 0 when filter is enabled")
+        if self.use_volatility_filter:
+            if self.volatility_atr_period <= 0 or self.volatility_lookback <= 0:
+                raise ValueError("volatility periods must be > 0")
+            if (
+                self.volatility_min_ratio <= 0
+                or self.volatility_max_ratio <= self.volatility_min_ratio
+            ):
+                raise ValueError("need 0 < volatility_min_ratio < volatility_max_ratio")
 
 
 @dataclass

@@ -4,12 +4,19 @@ bossfx.data.yfinance_feed
 
 YFinance wrapper for rapid prototyping.
 
-⚠️ PRODUCTION WARNING ⚠️
+Uses yf.Ticker().history() instead of yf.download() because Yahoo's
+bulk-download endpoint has become unreliable for forex symbols (HTTP 500
+"sad panda" responses). The Ticker endpoint hits a different API path
+that remains functional.
+
+Still not a production data source for live trading. See warning below.
+
+PRODUCTION WARNING
+------------------
 yfinance is NOT a production FX data source. For EURUSD you're getting
-unofficial aggregated data with small rounding mismatches in OHLC values
-(open may be a hair above high, etc.). We sanitize those at the boundary
-so the rest of the system can trust the data. For production, use MT5
-historical or Dukascopy.
+unofficial aggregated data with small rounding mismatches in OHLC values.
+We sanitize those at the boundary so the rest of the system can trust
+the data. For production, use MT5 historical or Dukascopy.
 """
 
 from __future__ import annotations
@@ -55,26 +62,34 @@ class YFinanceDataFeed(DataFeed):
 
         import yfinance as yf
 
-        log.info(f"Downloading {self._symbol} {self._timeframe} from yfinance...")
-        df = yf.download(
-            tickers=self._symbol,
+        log.info(
+            f"Downloading {self._symbol} {self._timeframe} from yfinance "
+            f"(Ticker path) [{self._start} -> {self._end}]..."
+        )
+        ticker = yf.Ticker(self._symbol)
+        df = ticker.history(
             start=self._start,
             end=self._end,
             interval=self._timeframe,
-            progress=False,
             auto_adjust=False,
         )
-        if df.empty:
-            raise RuntimeError(f"yfinance returned no data for {self._symbol}")
 
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
+        if df is None or df.empty:
+            raise RuntimeError(
+                f"yfinance returned no data for {self._symbol} "
+                f"[{self._start} -> {self._end}] at interval {self._timeframe}. "
+                f"Note: 1h data is limited to the trailing 730 days from today."
+            )
 
+        # Ticker().history() returns a DatetimeIndex named 'Datetime'.
+        # reset_index() promotes it into a column; we then normalise.
         df = df.reset_index()
         df.columns = [str(c).lower() for c in df.columns]
 
+        # The date column can be 'datetime', 'date', or 'index' depending on
+        # interval + yfinance version. Normalise to 'timestamp'.
         rename_map = {}
-        for candidate in ("date", "datetime", "index"):
+        for candidate in ("datetime", "date", "index"):
             if candidate in df.columns:
                 rename_map[candidate] = "timestamp"
                 break
@@ -96,8 +111,8 @@ class YFinanceDataFeed(DataFeed):
     ) -> tuple[float, float, float, float]:
         """
         Fix minor OHLC inconsistencies that yfinance produces for FX pairs.
-        We never modify open or close — they're the critical values. We widen
-        high/low to contain them if needed.
+        We never modify open or close - they're the critical values. We
+        widen high/low to contain them if needed.
         """
         new_high = max(high, open_price, close, low)
         new_low = min(low, open_price, close, high)

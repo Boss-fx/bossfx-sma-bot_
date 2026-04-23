@@ -1,0 +1,41 @@
+# BossFx - Phase 3 Run 2: Walk-forward on 1H EURUSD
+# Shifted forward to stay inside yfinance's trailing 730-day 1H window.
+# 12m train / 3m test / 3m step gives 4 windows with ~20-50 trades each.
+
+data:
+  source: yfinance
+  symbol: EURUSD=X
+  timeframe: 1h
+  start: 2024-05-01
+  end: 2026-04-01
+  csv_path: null
+
+strategy:
+  name: sma_crossover
+  fast_period: 20    # placeholder; walk-forward overrides
+  slow_period: 50
+
+risk:
+  initial_cash: 10000.0
+  risk_per_trade_pct: 0.01
+  max_position_pct: 0.20
+  stop_loss_pct: 0.005
+  take_profit_pct: 0.010
+
+execution:
+  spread_pips: 1.0
+  slippage_pips: 0.5
+  commission_per_lot: 7.0
+  pip_size: 0.0001
+  contract_size: 100000.0
+
+walkforward:
+  train_months: 12
+  test_months: 3
+  step_months: 3
+  fast_periods: [5, 10, 15, 20, 30]
+  slow_periods: [30, 50, 75, 100]
+  use_trend_filter_options: [false, true]
+  trend_filter_periods: [200, 500, 1000]
+
+log_level: INFO
