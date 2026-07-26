@@ -1,242 +1,154 @@
 # BossFx — Algorithmic Trading Framework
 
-> A modular, event-driven algorithmic trading system designed for honest
-> backtesting, production-ready execution, and SaaS-scale extensibility.
+> A modular, event-driven algorithmic trading framework built so the **backtest behaves exactly like live trading** — no look-ahead bias, realistic execution costs, and risk management as a first-class concern.
 
-**Status:** Phase 1 complete — foundation refactor. 57 tests, all passing.
-See the [Roadmap](#roadmap) for what's coming next.
+**Status:** Phases 1–2 complete, Phase 3 underway. **93 tests across 12 files**, green on CI (Python 3.10 / 3.11 / 3.12). Part of [BossFx](https://github.com/Boss-fx); built by [Timilehin Shobande](https://github.com/Gabby-tech).
 
 ---
 
-## Why BossFx exists
+## Problem
 
-Most retail trading bots lie to you. Not maliciously — structurally.
-They use vectorized backtests that leak future data, ignore spread and
-slippage, and assume you can size every trade the same regardless of
-volatility or drawdown. Their backtests look great; their live accounts
-blow up.
+Most retail trading bots lie to you — not maliciously, but structurally. They use vectorized backtests that leak future data, ignore spread and slippage, and size every trade identically regardless of volatility or drawdown. The backtest looks great; the live account blows up.
 
-BossFx is built on a different principle: **the backtest must behave
-exactly like live trading, or it's worthless.** That means:
+The hard part of a trading system isn't the entry signal. It's building an evaluation you can actually trust — one where a good backtest number *means something* because the simulation couldn't have cheated.
 
-- **Event-driven architecture** — every price bar is processed in
-  strict chronological order. No component can ever see the future.
-- **Online indicators** — moving averages, ATR, etc. are stateful
-  objects that *cannot* be fed future data. Look-ahead bias becomes
-  structurally impossible, not just unlikely.
-- **Realistic execution modeling** — spread, slippage, and commissions
-  are applied to every fill. If the strategy only works without them,
-  we want to know.
-- **Signal-on-bar-N, fill-on-bar-N+1 open** — the canonical
-  anti-look-ahead pattern. Orders cannot be filled on the bar that
-  produced them.
+## Solution
 
----
+BossFx is built on one principle: **the backtest must behave exactly like live trading, or it's worthless.**
 
-## Architecture at a glance
+- **Event-driven core.** Every price bar is processed in strict chronological order. No component can see the future.
+- **Online indicators.** Moving averages, ATR, etc. are stateful objects that *cannot* be fed future data — look-ahead bias becomes structurally impossible, not merely unlikely.
+- **Signal-on-bar-N, fill-on-bar-N+1-open.** The canonical anti-look-ahead pattern: an order can never fill on the bar that produced it.
+- **Realistic execution.** Spread, slippage, and commission are applied to every fill. If a strategy only works without costs, we want to know immediately.
+- **Risk before returns.** Percent-of-equity position sizing and a drawdown circuit breaker sit between every signal and every order.
 
-BossFx uses a hexagonal (ports-and-adapters) architecture. Every layer
-has an abstract contract, so components are swappable without rewrites.
+## Features
 
-```
-         ┌─────────────┐
-         │  DataFeed   │   CSV, yfinance, MT5, Polygon, ...
-         └──────┬──────┘
-                │ BarEvent
-                ▼
-         ┌─────────────┐
-         │  Strategy   │   SMA crossover today; multi-factor tomorrow
-         └──────┬──────┘
-                │ SignalEvent
-                ▼
-         ┌─────────────┐
-         │ RiskManager │   Percent-risk sizing + drawdown circuit breaker
-         └──────┬──────┘
-                │ OrderEvent
-                ▼
-         ┌─────────────┐
-         │  Executor   │   SimulatedExecutor (backtest) or MT5Executor (live)
-         └──────┬──────┘
-                │ FillEvent
-                ▼
-         ┌─────────────┐
-         │  Portfolio  │   Single source of truth for cash, positions, equity
-         └──────┬──────┘
-                │ equity_curve + trade_log
-                ▼
-         ┌─────────────┐
-         │  Analytics  │   Sharpe, Sortino, Calmar, drawdown, profit factor
-         └─────────────┘
+- Hexagonal (ports-and-adapters) architecture — swap any stage without touching the others
+- SMA-crossover strategy with composable **trend** (HTF bias) and **volatility** (ATR regime) filters
+- **Walk-forward validation** and **grid search** for out-of-sample evaluation
+- Percent-risk sizing, configurable stops/targets, drawdown circuit breaker
+- Realistic execution simulator (spread / slippage / commission)
+- Full performance analytics — Sharpe, Sortino, Calmar, max drawdown, profit factor
+- 100% YAML-driven configuration, validated at load time (fails fast on bad input)
+- CSV and yfinance data feeds (MT5 live feed planned — see [Roadmap](#roadmap))
+
+## Architecture
+
+Hexagonal architecture: every stage is an abstract contract, so implementations are swappable without rewrites. The same engine runs a backtest today and a live MT5 executor tomorrow — the strategy code doesn't change a line.
+
+```mermaid
+flowchart TD
+    DF["DataFeed<br/>CSV · yfinance · (MT5 planned)"] -->|BarEvent| ST
+    ST["Strategy<br/>SMA crossover + trend/volatility filters"] -->|SignalEvent| RM
+    RM["RiskManager<br/>percent-risk sizing · drawdown circuit breaker"] -->|OrderEvent| EX
+    EX["Executor<br/>SimulatedExecutor (backtest) / MT5Executor (planned)"] -->|FillEvent| PF
+    PF["Portfolio<br/>single source of truth: cash · positions · equity"] -->|equity curve + trade log| AN
+    AN["Analytics<br/>Sharpe · Sortino · Calmar · drawdown · profit factor"]
 ```
 
-**Swap any block; the others don't care.** This is what makes the system
-ready to become a SaaS platform: when you wire in a live MT5 executor,
-the backtest engine doesn't change one line.
+Each arrow is a typed event; each box depends only on an interface, never a concrete class.
 
----
+## Tech stack
 
-## Quickstart
-
-### Install
-
-```bash
-git clone https://github.com/YOUR_ORG/bossfx.git
-cd bossfx
-pip install -r requirements.txt
-# or for development:
-pip install -e ".[dev]"
-```
-
-### Run a backtest
-
-```bash
-python -m scripts.run_backtest --config configs/eurusd_sma_default.yaml
-```
-
-Output:
-
-```
-╔════════════════════════════════════════════════╗
-║          BossFx Performance Report             ║
-╠════════════════════════════════════════════════╣
-║ Total Return         :      +2.76%         ║
-║ CAGR                 :     +12.70%         ║
-║ Sharpe Ratio         :      15.77          ║
-║ Sortino Ratio        :      20.35          ║
-║ Max Drawdown         :      -0.23%         ║
-║ Total Trades         :         37          ║
-║ Win Rate             :      62.16%         ║
-║ Profit Factor        :       3.32          ║
-╚════════════════════════════════════════════════╝
-```
-
-### Run the tests
-
-```bash
-python -m unittest discover tests -v
-```
-
-57 tests covering accounting invariants, no-look-ahead structural
-properties, and behavioral correctness.
-
----
-
-## Configuration
-
-Everything is driven by YAML. To change parameters, edit the config —
-not the code.
-
-```yaml
-# configs/eurusd_sma_default.yaml
-data:
-  source: csv                      # csv | yfinance
-  symbol: EURUSD
-  timeframe: 1h
-  csv_path: tests/fixtures/eurusd_1h_sample.csv
-
-strategy:
-  fast_period: 20
-  slow_period: 50
-
-risk:
-  initial_cash: 10000.0
-  risk_per_trade_pct: 0.01          # risk 1% of equity per trade
-  stop_loss_pct: 0.005              # 0.5% adverse move
-  take_profit_pct: 0.010            # 1.0% target (1:2 RR)
-
-execution:
-  spread_pips: 1.0
-  slippage_pips: 0.5
-  commission_per_lot: 7.0
-```
-
-Configs are validated at load time via Pydantic (or a dataclass
-fallback). A bad config fails immediately, not three hours into a run.
-
----
+`Python 3.10–3.12` · `Pydantic` (config validation) · `pandas` / `numpy` · `PyYAML` · `unittest` · `GitHub Actions` (CI matrix + lint) · `pyproject.toml` packaging
 
 ## Project structure
 
 ```
 bossfx/
 ├── bossfx/
-│   ├── core/              # Events + abstract interfaces + portfolio
-│   ├── data/              # CSV, yfinance feeds (MT5 in Phase 5)
-│   ├── strategies/        # SMA crossover + online indicators
-│   │   └── filters/       # (Phase 2) trend, volatility, session filters
-│   ├── risk/              # Percent-risk sizing, DD circuit breaker
-│   ├── backtest/          # Event-driven engine + execution simulator
-│   ├── analytics/         # Sharpe, Sortino, Calmar, drawdown metrics
-│   ├── config/            # YAML -> validated config objects
-│   └── utils/             # Structured logging
-├── configs/               # User-editable YAMLs
-├── tests/                 # 57 tests across 8 files
-├── scripts/               # CLI entry points
-├── requirements.txt
+│   ├── core/          # Events, abstract interfaces, portfolio (source of truth)
+│   ├── data/          # CSV + yfinance feeds (MT5 planned)
+│   ├── strategies/    # SMA crossover, online indicators
+│   │   └── filters/   # Trend (HTF bias) + volatility (ATR regime) filters
+│   ├── risk/          # Percent-risk sizing, drawdown circuit breaker
+│   ├── backtest/      # Event-driven engine, execution sim, walk-forward, grid search
+│   ├── analytics/     # Sharpe, Sortino, Calmar, drawdown, profit factor
+│   ├── config/        # YAML → validated config objects
+│   └── utils/         # Structured logging
+├── configs/           # User-editable YAMLs (incl. 5-year + walk-forward setups)
+├── tests/             # 93 tests across 12 files
+├── scripts/           # run_backtest, run_walkforward (CLI entry points)
 └── pyproject.toml
 ```
 
----
+## Getting started
 
-## The three tiers of tests
+```bash
+git clone https://github.com/Boss-fx/bossfx-sma-bot_.git
+cd bossfx-sma-bot_
+pip install -e ".[dev]"     # or: pip install -r requirements.txt
+```
 
-Every test in the suite defends against one of three failure modes:
+Run a backtest:
 
-1. **Tier 1 — Accounting invariants** (`test_portfolio.py`, `test_events.py`).
-   Does one dollar in equal one dollar out? These are the tests where
-   money silently disappears if they fail.
+```bash
+python -m scripts.run_backtest --config configs/eurusd_sma_default.yaml
+```
 
-2. **Tier 2 — No-look-ahead invariants** (`test_indicators.py`).
-   Can any component, under any circumstances, produce a value
-   influenced by data it hasn't seen yet? Proven structurally.
+Run the test suite:
 
-3. **Tier 3 — Behavioral correctness** (the rest).
-   Does the SMA compute the right number? Does the crossover fire once
-   per cross? Does position sizing math check out?
+```bash
+python -m unittest discover tests -v   # 93 tests
+```
 
----
+## Usage
+
+Everything is driven by YAML — change parameters in a config, never in the code. Bad configs fail at load time (Pydantic-validated), not three hours into a run.
+
+```yaml
+# configs/eurusd_sma_default.yaml
+data:      { source: csv, symbol: EURUSD, timeframe: 1h, csv_path: tests/fixtures/eurusd_1h_sample.csv }
+strategy:  { fast_period: 20, slow_period: 50 }
+risk:      { initial_cash: 10000.0, risk_per_trade_pct: 0.01, stop_loss_pct: 0.005, take_profit_pct: 0.010 }
+execution: { spread_pips: 1.0, slippage_pips: 0.5, commission_per_lot: 7.0 }
+```
+
+The `default` config runs against a small bundled sample (≈2,000 bars) as a **functional smoke test** — it verifies the pipeline end-to-end, and its numbers are **not** a performance claim. For real evaluation, `configs/` ships multi-year and walk-forward setups (`eurusd_5y_baseline.yaml`, `eurusd_5y_trend_vol.yaml`, `walkforward_5y.yaml`, …); point them at your own EURUSD history:
+
+```bash
+python -m scripts.run_walkforward --config configs/walkforward_5y.yaml
+```
+
+## Engineering decisions
+
+- **Event-driven over vectorized.** Vectorized backtests are faster to write and almost always leak the future. An event loop is the price of a result you can trust — and it's the same loop that will run live.
+- **Online, stateful indicators.** Making indicators incapable of seeing future data turns "no look-ahead" from a code-review promise into a structural guarantee the tests can prove.
+- **Hexagonal boundaries.** The backtest and (future) live executor implement the same `Executor` interface, so going live doesn't touch the engine. The cost is more interfaces up front; the payoff is no rewrite later.
+- **Config-as-data.** YAML + fail-fast validation keeps experiments reproducible and stops a typo from silently invalidating a run.
+
+## Technical challenges
+
+- **Proving the absence of look-ahead.** It's easy to *claim* no future leakage; hard to *prove* it. The fix is structural — the signal/fill separation and online indicators are designed so a look-ahead bug can't slip past the tests (see Tier 2 below).
+- **Accounting integrity.** Cash, positions, and equity must reconcile on every event. A silent off-by-one in fill accounting is money that disappears — Tier 1 tests guard every invariant.
+
+## Testing
+
+**93 tests across 12 files**, run on every push/PR across Python 3.10, 3.11, and 3.12, plus an end-to-end smoke backtest and a lint job. Each test defends one of three failure modes:
+
+1. **Tier 1 — Accounting invariants** (`test_portfolio.py`, `test_events.py`, `test_execution.py`). Does one dollar in equal one dollar out? These are the tests where money silently disappears if they fail.
+2. **Tier 2 — No-look-ahead invariants** (`test_indicators.py`). Can any component produce a value influenced by data it hasn't seen yet? Proven structurally, not assumed.
+3. **Tier 3 — Behavioral correctness** (strategy, risk, filters, walk-forward, end-to-end). Does the SMA compute the right value? Does the crossover fire once per cross? Does sizing math hold?
 
 ## Roadmap
 
-- [x] **Phase 1 — Foundation refactor** *(current)*
-  - Event-driven core, abstract interfaces, validated configs,
-    realistic execution modeling, 57-test suite, CI-ready.
-- [ ] **Phase 2 — Strategy & risk upgrades**
-  - Multi-timeframe trend filter (HTF EMA bias)
-  - ATR-based volatility filter (skip low-vol regimes)
-  - Session filter (trade London/NY overlap only)
-  - ATR-based dynamic stops (replace fixed %)
-- [ ] **Phase 3 — Realistic backtesting**
-  - Walk-forward validation
-  - Monte Carlo equity curve confidence intervals
-  - Parameter stability tests
-- [ ] **Phase 4 — Analytics & reporting**
-  - HTML reports (QuantStats-style)
-  - Strategy comparison dashboard
-  - Trade-level MAE/MFE analytics
-- [ ] **Phase 5 — Productization**
-  - MT5 live executor
-  - Multi-strategy, multi-asset portfolios
-  - Optuna parameter optimization
-  - Streamlit SaaS dashboard
-
----
+- [x] **Phase 1 — Foundation.** Event-driven core, abstract interfaces, validated configs, realistic execution modeling, CI.
+- [x] **Phase 2 — Strategy & risk upgrades.** Trend filter (HTF bias), ATR volatility filter, composable filter stack.
+- [ ] **Phase 3 — Robust evaluation** *(in progress).* Walk-forward validation ✅ and grid search ✅; Monte Carlo equity-curve confidence intervals and parameter-stability tests next.
+- [ ] **Phase 4 — Analytics & reporting.** HTML reports, strategy comparison, trade-level MAE/MFE.
+- [ ] **Phase 5 — Productization.** MT5 live executor, multi-strategy/multi-asset portfolios, Optuna optimization, dashboard.
 
 ## Design principles
 
-1. **Backtest honesty over backtest beauty.** An 8% return with honest
-   assumptions beats a 40% return built on hidden lies.
-2. **Every component is replaceable.** The interfaces are contracts;
-   implementations plug in. No "god class."
-3. **Production-ready means boring.** Defensive, well-logged, well-tested
-   code that won't surprise you at 3am when EURUSD spikes on an NFP release.
-
----
+1. **Backtest honesty over backtest beauty.** An 8% return with honest assumptions beats a 40% return built on hidden leakage.
+2. **Every component is replaceable.** Interfaces are contracts; implementations plug in. No god class.
+3. **Production-ready means boring.** Defensive, well-logged, well-tested code that won't surprise you at 3am when EURUSD spikes on an NFP print.
 
 ## License
 
-*(Add your chosen license here.)*
+TODO: no license file yet — until one is added, all rights are reserved. (See the note from your engineering partner below on choosing one.)
 
----
+## Credits
 
-Built with deliberate intent, not hype. 🏗️
+Built by [Timilehin Shobande](https://github.com/Gabby-tech) — software engineer & founder, [BossFx](https://github.com/Boss-fx).
