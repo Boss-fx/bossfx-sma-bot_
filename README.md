@@ -147,7 +147,7 @@ python -m scripts.run_walkforward --config configs/walkforward_5y.yaml
 
 ## License
 
-TODO: no license file yet — until one is added, all rights are reserved. (See the note from your engineering partner below on choosing one.)
+Released under the [MIT License](LICENSE).
 
 ## Credits
 
