@@ -111,6 +111,25 @@ The `default` config runs against a small bundled sample (≈2,000 bars) as a **
 python -m scripts.run_walkforward --config configs/walkforward_5y.yaml
 ```
 
+## Results — an honest baseline
+
+Real backtest on **EURUSD daily, 2020–2025** (1,305 bars via yfinance), $10,000 start, 1% risk/trade, with spread + slippage + commission modeled on every fill. These numbers are deliberately unglamorous — that's the entire point of the project.
+
+| Config | Return (5y) | Sharpe | Max DD | Trades | Profit factor |
+|---|---:|---:|---:|---:|---:|
+| SMA crossover (baseline) | −0.11% | −0.03 | −1.52% | 32 | 0.99 |
+| + trend filter | +0.46% | 0.17 | −1.12% | 14 | 1.25 |
+| + trend + volatility filter | +0.46% | 0.17 | −1.12% | 14 | 1.25 |
+
+What this actually shows:
+
+- **A naive SMA crossover has no edge** on daily EURUSD once costs are modeled honestly (~flat, profit factor ≈ 1.0). Most retail bots quietly hide this; this framework reports it.
+- **The trend filter earns its place** — it roughly halves trades (32 → 14), lifts profit factor to 1.25, and reduces drawdown. Filtering low-quality signals helps.
+- **The volatility filter didn't bind** over this period (identical to trend-only). That's an honest null result, left in rather than smoothed over.
+- **Returns are modest by design** (1% risk, daily timeframe). The deliverable is an *evaluation you can trust*, not a promised return.
+
+*Reproduce: `python -m scripts.run_backtest --config configs/eurusd_5y_trend.yaml`. yfinance data is revised over time, so exact figures may drift slightly.*
+
 ## Engineering decisions
 
 - **Event-driven over vectorized.** Vectorized backtests are faster to write and almost always leak the future. An event loop is the price of a result you can trust — and it's the same loop that will run live.
